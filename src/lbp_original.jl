@@ -2,7 +2,7 @@
     lbp_original(X)
     lbp_original!(out, X)
 
-Compute the local binary pattern, the original version [1], of gray image using 3x3
+Compute the local binary pattern, the original version, of gray image using 3x3
 neighborhood matrix.
 
 ```text
@@ -11,6 +11,8 @@ neighborhood matrix.
 5  6  3  ==>    0  x  0     ==>      2  x  64  ==>     0   x  0            ==>  169
 2  1  7         1  0  1              4  16 128         0   0  128
 ```
+
+# Examples
 
 ```jldoctest; setup=:(using LocalBinaryPatterns)
 julia> X = [6 7 9; 5 6 3; 2 1 7]
@@ -32,7 +34,7 @@ julia> lbp_original(X)
 - [2] T. Ojala, M. Pietikäinen, and T. Mäenpää, “A Generalized Local Binary Pattern Operator for Multiresolution Gray Scale and Rotation Invariant Texture Classification,” in _Advances in Pattern Recognition — ICAPR 2001, vol. 2013, S. Singh, N. Murshed, and W. Kropatsch, Eds. Berlin, Heidelberg: Springer Berlin Heidelberg_, 2001, pp. 399–408. doi: 10.1007/3-540-44732-6_41.
 """
 lbp_original(X::AbstractArray) = lbp_original!(similar(X, UInt8), X)
-function lbp_original!(out, X::AbstractMatrix{T}) where T<:Union{Real, Gray}
+function lbp_original!(out, X::AbstractMatrix{T}) where T<:Union{Real,Gray}
     # nearest interpolation, 3x3 neighborhood
 
     # The original version [1] uses clockwise order; here we use anti-clockwise order

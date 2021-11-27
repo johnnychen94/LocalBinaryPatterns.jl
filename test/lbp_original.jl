@@ -9,6 +9,9 @@
     @test size(out) == (3, 3)
     @test out == ref_out
 
+    # ensure default parameter values are not changed accidently
+    @test out == lbp_original(X; rotation=false)
+
     fill!(out, 0)
     lbp_original!(out, X)
     @test out == ref_out
@@ -29,5 +32,15 @@
         out = lbp_original(Xo)
         @test axes(out) == axes(Xo)
         @test OffsetArrays.no_offset_view(out) == ref_out
+    end
+
+    @testset "Rotation Invariant" begin
+        X = [6 7 9; 5 6 3; 2 1 7]
+        ref_out = [3 1 0; 13 53 27; 5 91 0]
+
+        out = lbp_original(X; rotation=true)
+        @test eltype(out) == UInt8
+        @test size(out) == (3, 3)
+        @test out == ref_out
     end
 end

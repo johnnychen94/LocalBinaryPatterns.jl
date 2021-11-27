@@ -4,3 +4,7 @@ if VERSION < v"1.5"
         (x << ((sizeof(T) << 3 - 1) & k)) | (x >>> ((sizeof(T) << 3 - 1) & -k))
     end
 end
+
+if VERSION < v"1.1"
+    isnothing(x) = x === nothing
+end

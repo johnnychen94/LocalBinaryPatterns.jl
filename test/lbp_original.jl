@@ -43,4 +43,24 @@
         @test size(out) == (3, 3)
         @test out == ref_out
     end
+
+    @testset "Uniform encoding" begin
+        X = [6 7 9; 5 6 3; 2 1 7]
+        ref_out = [192 64 0; 9 9 9; 9 9 0]
+
+        out = lbp_original(X; rotation=false, uniform_degree=2)
+        @test eltype(out) == UInt8
+        @test size(out) == (3, 3)
+        @test out == ref_out
+    end
+
+    @testset "Rotation Invariant, Uniform encoding" begin
+        X = [6 7 9; 5 6 3; 2 1 7]
+        ref_out = [3 1 0; 9 9 9; 9 9 0]
+
+        out = lbp_original(X; rotation=true, uniform_degree=2)
+        @test eltype(out) == UInt8
+        @test size(out) == (3, 3)
+        @test out == ref_out
+    end
 end

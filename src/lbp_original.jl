@@ -7,7 +7,15 @@ neighborhood matrix.
 
 # Parameters
 
-- `rotation=false`: set `true` to generate patterns that are invariant to rotation [3].
+The parameters control whether and the degree additional encoding passses are used to get
+patterns that are more robust to certain changes, e.g., rotation. The following lists are
+ordered as encoding order. For example, if `rotation=true` and `uniform_degree=2`, then
+rotation encoding will be applied first.
+
+- `rotation=false`: set `true` to generate patterns that are invariant to rotation [3]. For
+  example, pattern `0b00001101` is equivalent to `0b01000011` when `rotation=true`.
+- `uniform_degree`: the threshold number of pattern uniform degree. From [2] a typical
+  choice is `2`.If it is `nothing`(default value) then no uniform encoding is applied.
 
 # Examples
 
@@ -29,6 +37,12 @@ julia> lbp_original(X; rotation=true)
  0x03  0x01  0x00
  0x0d  0x35  0x1b
  0x05  0x5b  0x00
+
+julia> lbp_original(X; uniform_degree=2)
+3×3 $(Matrix{UInt8}):
+ 0xc0  0x40  0x00
+ 0x09  0x09  0x09
+ 0x09  0x09  0x00
 ```
 
 # Extended help
@@ -55,7 +69,19 @@ the same class because `bitrotate(0b01000011, -2) == 0b11010000`, thus both valu
 mapped to `0b00001101`. See also Eq.(8) in [2].
 
 For 3x3 neighborhood matrix, applying rotation-invariant encoding decreases the possible
-number of binary patterns from 256 to 36.
+number of binary patterns from ``256`` to ``36``.
+
+## Uniform encoding
+
+Authors of [2] states that certain local binary patterns are fundamental properties of
+texture, providing the vast majority, sometimes over 90 percent, of all 3x3 patterns. Those
+patterns are called "uniform" as they contain very few spatial transitions. Uniform degree
+is an additional encoding pass that controls at what circumstances can we set the block to
+miscellaneous class.
+
+For example, if `uniform_degree=2`, then `0b00001101` will be encoded as `9` (type
+miscellaneous) because it has ``3`` bit transitions, and `0b00001100` will be unchanged
+because it only has ``2`` bit transitions.
 
 # References
 
@@ -67,7 +93,8 @@ lbp_original(X::AbstractArray; kwargs...) = lbp_original!(similar(X, UInt8), X; 
 function lbp_original!(
         out,
         X::AbstractMatrix{T};
-        rotation=false
+        rotation::Bool=false,
+        uniform_degree::Union{Nothing,Int}=nothing,
         ) where T<:Union{Real,Gray}
     # nearest interpolation, 3x3 neighborhood
 
@@ -104,8 +131,10 @@ function lbp_original!(
         out[I] = rst
     end
 
-    if rotation
-        encoding_table = build_rotation_invariant_encoding_table(UInt8)
+    # The building is cached and chained(if there are multiple encoding passes) thus the
+    # cost is decreased to one brocasting to `getindex` and `setindex!`.
+    encoding_table = build_LBP_encoding_table(UInt8; rotation=rotation, uniform_degree=uniform_degree)
+    if !isnothing(encoding_table)
         @. out = encoding_table[out + 1]
     end
 

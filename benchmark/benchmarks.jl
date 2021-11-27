@@ -16,7 +16,9 @@ tst_types = (N0f8, Float32, Gray{N0f8}, Gray{Float32})
 
 const SUITE = BenchmarkGroup()
 
-alg_list = (( "Original", lbp_original),)
+alg_list = (( "Original", lbp_original),
+            ( "Rotation-Invariant", lbp_ri),
+            )
 
 function add_algorithm_benchmark!(suite, img, alg_name, alg;
                                   tst_sizes, tst_types)

@@ -1,6 +1,6 @@
 """
-    lbp_ri(X)
-    lbp_ri!(out, X)
+    lbp_rotation_invariant(X)
+    lbp_rotation_invariant!(out, X)
 
 Compute the local binary pattern, the rotation invariant version, of gray image using 3x3
 neighborhood matrix.
@@ -26,7 +26,7 @@ julia> X = [6 7 9; 5 6 3; 2 1 7]
  5  6  3
  2  1  7
 
-julia> lbp_ri(X)
+julia> lbp_rotation_invariant(X)
 3×3 $(Matrix{UInt8}):
  0x03  0x01  0x00
  0x0d  0x35  0x1b
@@ -38,9 +38,9 @@ julia> lbp_ri(X)
 - [1] Pietikäinen, Matti, Timo Ojala, and Zelin Xu. "Rotation-invariant texture classification using feature distributions." _Pattern recognition_ 33.1 (2000): 43-52.
 - [2] T. Ojala, M. Pietikainen, and T. Maenpaa, “Multiresolution gray-scale and rotation invariant texture classification with local binary patterns,” _IEEE Trans. Pattern Anal. Machine Intell._, vol. 24, no. 7, pp. 971–987, Jul. 2002, doi: 10.1109/TPAMI.2002.1017623.
 """
-lbp_ri(X::AbstractArray) = lbp_ri!(similar(X, UInt8), X)
+lbp_rotation_invariant(X::AbstractArray) = lbp_rotation_invariant!(similar(X, UInt8), X)
 
-function lbp_ri!(out, X::AbstractMatrix{T}) where T<:Union{Real, Gray}
+function lbp_rotation_invariant!(out, X::AbstractMatrix{T}) where T<:Union{Real, Gray}
     # nearest interpolation, 3x3 neighborhood, rotation invariant
     encoding_table = build_circular_invariant_encoding_table(UInt8)
     lbp_original!(out, X)

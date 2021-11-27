@@ -13,6 +13,6 @@ using Aqua, Documenter
 end
 
 include("lbp_original.jl")
-include("lbp_ri.jl")
+include("lbp_rotation_invariant.jl")
 
 end

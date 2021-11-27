@@ -1,10 +1,10 @@
 # This implements the solver for Eq. (8) in the Ojala 2002 as lookup table.
 # Computing the encoding table using naive implementation is time-consuming,
 # since it's read-only, we simply cache the encoding table.
-const _circular_invariant_encoding_tables = Dict()
+const _rotation_invariant_encoding_tables = Dict()
 const SupportedEncodingTypes = Union{UInt8, UInt16}
-function build_circular_invariant_encoding_table(::Type{T}) where T<:SupportedEncodingTypes
-    d = _circular_invariant_encoding_tables
+function build_rotation_invariant_encoding_table(::Type{T}) where T<:SupportedEncodingTypes
+    d = _rotation_invariant_encoding_tables
     haskey(d, T) && return d[T]
     d[T] = _freeze(T, _build_inverse_table(_bitrotate_quotation_space(T)))
     return d[T]

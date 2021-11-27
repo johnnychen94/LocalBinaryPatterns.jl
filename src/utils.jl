@@ -1,4 +1,4 @@
-const SupportedEncodingTypes = Union{UInt8, UInt16}
+const SupportedEncodingTypes = Union{UInt8}
 const _LBP_encoding_table = Dict()
 function build_LBP_encoding_table(::Type{T};
         rotation::Bool,
@@ -58,3 +58,21 @@ function _build_inverse_table(d::Dict{T,<:AbstractVector{T}}) where {T}
     return id
 end
 _freeze(::Type{T}, v::Vector) where T = SVector{typemax(T)-typemin(T)+1}(v)
+
+function _circular_neighbor_offsets(npoints::Integer, radius::Real)
+    radius >= 1 || throw(ArgumentError("radius >= 1.0 is expected."))
+
+    ntuple(npoints) do p
+        θ=2π*(p-1)/npoints
+        pos = (-1, 1) .* radius .* sincos(θ)
+        # rounding the positions for more stable result when applying interpolation
+        round.(pos; digits=8)
+    end
+end
+
+# A helper function to let `interpolation` keyword correctly understands `Degree` inputs
+@inline wrap_BSpline(itp::Interpolations.InterpolationType) = itp
+@inline wrap_BSpline(degree::Interpolations.Degree) = BSpline(degree)
+
+@inline _inbounds_getindex(A, I) = @inbounds A[I...]
+@inline _inbounds_getindex(A::Interpolations.AbstractInterpolation, I) = @inbounds A(I...)

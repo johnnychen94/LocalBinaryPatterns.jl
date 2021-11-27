@@ -6,6 +6,8 @@ using ImageTransformations
 using TestImages
 using ImageCore
 
+include("mapwindow_impl.jl")
+
 on_CI = haskey(ENV, "GITHUB_ACTIONS")
 
 img = testimage("cameraman")
@@ -35,4 +37,15 @@ for (alg_name, alg) in alg_list
     add_algorithm_benchmark!(SUITE, img, alg_name, alg;
                              tst_sizes=tst_sizes,
                              tst_types=tst_types)
+end
+
+
+# compare with the simple mapwindow version
+suite = SUITE["Original (mapwindow)"] = BenchmarkGroup()
+for T in tst_types
+    haskey(suite, T) || (suite[T] = BenchmarkGroup())
+    for sz in tst_sizes
+        tst_img = imresize(T.(img), (sz, sz))
+        suite[T]["$sz×$sz"] = @benchmarkable lbp_origin_mapwindow($tst_img)
+    end
 end

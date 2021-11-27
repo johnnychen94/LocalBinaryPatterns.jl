@@ -20,4 +20,14 @@
 
     # LBP is only defined for scalar values
     @test_throws MethodError lbp_original(RGB.(Gray.(X./255)))
+
+    # not yet ready for N-dimensional array (although it's doable)
+    @test_throws MethodError lbp_original(rand(3, 3, 3))
+
+    @testset "OffsetArrays" begin
+        Xo = OffsetArray(X, -1, -1)
+        out = lbp_original(Xo)
+        @test axes(out) == axes(Xo)
+        @test OffsetArrays.no_offset_view(out) == ref_out
+    end
 end

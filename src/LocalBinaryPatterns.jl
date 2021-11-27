@@ -1,7 +1,7 @@
 module LocalBinaryPatterns
 
 using TiledIteration: EdgeIterator
-using ImageCore: GenericGrayImage, OffsetArray
+using ImageCore
 
 export lbp_original, lbp_original!
 

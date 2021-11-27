@@ -31,8 +31,8 @@ julia> lbp_original(X)
 - [1] T. Ojala, M. Pietikäinen, and D. Harwood, “A comparative study of texture measures with classification based on featured distributions,” _Pattern Recognition_, vol. 29, no. 1, pp. 51–59, Jan. 1996, doi: 10.1016/0031-3203(95)00067-4.
 - [2] T. Ojala, M. Pietikäinen, and T. Mäenpää, “A Generalized Local Binary Pattern Operator for Multiresolution Gray Scale and Rotation Invariant Texture Classification,” in _Advances in Pattern Recognition — ICAPR 2001, vol. 2013, S. Singh, N. Murshed, and W. Kropatsch, Eds. Berlin, Heidelberg: Springer Berlin Heidelberg_, 2001, pp. 399–408. doi: 10.1007/3-540-44732-6_41.
 """
-lbp_original(X::AbstractArray) = lbp_original!(zeros(UInt8, size(X)), X)
-function lbp_original!(out, X::GenericGrayImage)
+lbp_original(X::AbstractArray) = lbp_original!(similar(X, UInt8), X)
+function lbp_original!(out, X::AbstractMatrix{T}) where T<:Union{Real, Gray}
     # nearest interpolation, 3x3 neighborhood
 
     # The original version [1] uses clockwise order; here we use anti-clockwise order
@@ -41,7 +41,7 @@ function lbp_original!(out, X::GenericGrayImage)
     offsets = ((-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1))
     offsets = CartesianIndex.(offsets)
     outerR = CartesianIndices(X)
-    innerR = CartesianIndex(2, 2):CartesianIndex(size(X).-1)
+    innerR = first(outerR)+oneunit(first(outerR)):last(outerR)-oneunit(last(outerR))
 
     # TODO(johnnychen94): use LoopVectorization
     @inbounds for I in innerR

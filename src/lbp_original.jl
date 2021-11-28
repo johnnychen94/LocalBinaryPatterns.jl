@@ -1,38 +1,13 @@
 """
-    lbp_original(X; kwargs...)
-    lbp_original(X, npoints, radius, interpolation=Linear(); kwargs...)
-    lbp_original!(out, X, offsets; kwargs...)
+    lbp_original(X; [rotation], [uniform_degree])
 
 Compute the local binary pattern of gray image `X` using the original method.
 
 # Arguments
 
 - `X::AbstractMatrix`: the input image matrix. For colorful images, one can manually convert
-  it to some monochrome space, e.g., `Gray` or the L-channel of `Lab`.
-
-[2,4] proposes a generalized interpolation-based version using circular neighborhood matrix,
-it produces better result for `rotation=true` case but is usually much slower than the plain
-3x3 matrix version. The arguments for this version are:
-
-- `npoints::Int`(4 ≤ npoints ≤ 8): the number of (uniform-spaced) neighborhood points.
-- `radius::Real`(radius ≥ 1.0): the radius of the circular.
-- `interpolation::Union{Degree, InterpolationType}=Linear()`: the interpolation method used
-  to generate non-grid pixel value. In most cases, `Linear()` are good enough. One can also
-  try other costly interpolation methods, e.g., `Cubic(Line(OnGrid()))`(also known as
-  "bicubic"), `Lanczos()`. See also Interpolations.jl for more choices.
-
-!!! note "neighborhood order differences"
-    Different implementation might use different neighborhood orders; this will change the
-    encoding result but will not change the overall distribution. For instance,
-    `lbp_original(X)` differs from `lbp_original(X, 8, 1, Constant())` only by how `offsets`
-    (see below) are ordered; the former uses column-major top-left to bottom-right 3x3 matrix
-    order and the latter uses circular order.
-
-Arguments for in-place version:
-
-- `offsets::Tuple`: tuple of neighborhood matrix, e.g., `((0, 1), (0, -1), (1, 0), (-1, 0))`
-  specifies the 4-neighborhood matrix. If `X isa Interpolations.AbstractInterpolation`
-  holds, then the position values can be float numbers, e.g, `(0.7, 0.7)`.
+  it to some monochrome space, e.g., `Gray`, the L-channel of `Lab`. One could also do
+  channelwise LBP and then concatenate together.
 
 # Parameters
 
@@ -60,12 +35,6 @@ julia> lbp_original(X)
  0xc0  0x40  0x00
  0x68  0xa9  0x1b
  0x28  0x6b  0x00
-
-julia> lbp_original(X, 4, 1) # 4-neighbor with circular radius 1
-3×3 $(Matrix{UInt8}):
- 0x01  0x01  0x00
- 0x03  0x02  0x0e
- 0x02  0x07  0x00
 
 julia> lbp_original(X; rotation=true)
 3×3 $(Matrix{UInt8}):
@@ -128,21 +97,90 @@ unchanged because it only has ``2`` bit transitions.
 - [3] Pietikäinen, Matti, Timo Ojala, and Zelin Xu. "Rotation-invariant texture classification using feature distributions." _Pattern recognition_ 33.1 (2000): 43-52.
 - [4] T. Ojala, M. Pietikainen, and T. Maenpaa, “Multiresolution gray-scale and rotation invariant texture classification with local binary patterns,” _IEEE Trans. Pattern Anal. Machine Intell._, vol. 24, no. 7, pp. 971–987, Jul. 2002, doi: 10.1109/TPAMI.2002.1017623.
 """
-function lbp_original(X::AbstractArray; kwargs...)
+function lbp_original(X::AbstractArray; rotation::Bool=false, uniform_degree::Union{Nothing,Int}=nothing)
     # The original version [1] uses clockwise order; here we use anti-clockwise order
     # because Julia is column-major order. If we consider memory order differences then they
     # are equivalent.
     offsets = ((-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1))
-    lbp_original!(similar(X, UInt8), X, offsets; kwargs...)
+    lookups = _build_lbp_original_lookup(UInt8, 8; rotation=rotation, uniform_degree=uniform_degree)
+    lbp_original!(similar(X, UInt8), X, offsets, lookups)
 end
+
+"""
+    lbp_original(X, npoints, radius, interpolation=Linear(); [rotation], [uniform_degree])
+
+Compute the local binary pattern of gray image `X` using the interpolation-based original
+method with circular neighborhood matrix.
+
+This produces better result for `rotation=true` case but is usually slower than the plain
+3x3 matrix version `lbp_original(X)`.
+
+# Arguments
+
+- `npoints::Int`(4 ≤ npoints ≤ 32): the number of (uniform-spaced) neighborhood points. It
+    is recommended to use one of {4, 8, 12, 16, 24}.
+- `radius::Real`(radius ≥ 1.0): the radius of the circular. Larger radius computes the
+    pattern of a larger local window/block.
+- `interpolation::Union{Degree, InterpolationType}=Linear()`: the interpolation method used
+    to generate non-grid pixel value. In most cases, `Linear()` are good enough. One can
+    also try other costly interpolation methods, e.g., `Cubic(Line(OnGrid()))`(also known as
+    "bicubic"), `Lanczos()`. See also Interpolations.jl for more choices.
+
+!!! note "neighborhood order differences"
+    Different implementation might use different neighborhood orders; this will change the
+    encoding result but will not change the overall distribution. For instance,
+    `lbp_original(X)` differs from `lbp_original(X, 8, 1, Constant())` only by how
+    `offsets` (see below) are ordered; the former uses column-major top-left to
+    bottom-right 3x3 matrix order and the latter uses circular order.
+
+# Examples
+
+```jldoctest; setup=:(using LocalBinaryPatterns)
+julia> X = [6 7 9; 5 6 3; 2 1 7]
+3×3 $(Matrix{Int}):
+ 6  7  9
+ 5  6  3
+ 2  1  7
+
+julia> lbp_original(X, 4, 1) # 4-neighbor with circular radius 1
+3×3 $(Matrix{UInt32}):
+ 0x00000001  0x00000001  0x00000000
+ 0x00000003  0x00000002  0x0000000e
+ 0x00000002  0x00000007  0x00000000
+
+julia> lbp_original(X, 4, 1; rotation=true)
+3×3 $(Matrix{UInt32}):
+ 0x00000001  0x00000001  0x00000000
+ 0x00000003  0x00000001  0x00000007
+ 0x00000001  0x00000007  0x00000000
+```
+
+"""
+function lbp_original(
+        X::AbstractArray, npoints, radius, interpolation=Linear();
+        rotation::Bool=false, uniform_degree::Union{Nothing,Int}=nothing)
+    interpolation = wrap_BSpline(interpolation)
+    offsets = _circular_neighbor_offsets(npoints, radius)
+    if interpolation == BSpline(Constant())
+        offsets = map(offsets) do o
+            round.(Int, o, RoundToZero)
+        end
+        itp = X
+    else
+        itp = interpolate(X, interpolation)
+    end
+    # For the sake of type-stability, hardcode to UInt32 here.
+    lookups = _build_lbp_original_lookup(UInt32, npoints, rotation=rotation, uniform_degree=uniform_degree)
+    lbp_original!(similar(X, UInt32), itp, offsets, lookups)
+end
+
 function lbp_original!(
         out,
         X::AbstractMatrix{T},
-        offsets::Tuple;
-        rotation::Bool=false,
-        uniform_degree::Union{Nothing,Int}=nothing,
+        offsets::Tuple,
+        lookups::Vector
         ) where T<:Union{Real,Gray}
-    length(offsets) > 8 && throw(ArgumentError("length(offsets) >= 8 is not supported."))
+    length(offsets) > 32 && throw(ArgumentError("length(offsets)=$(length(offsets)) is expected to be no larger than 32."))
     outerR = CartesianIndices(X)
     r = CartesianIndex(
         ceil(Int, maximum(abs.(extrema(first.(offsets))))),
@@ -175,28 +213,26 @@ function lbp_original!(
         out[I] = rst
     end
 
-    # The building is cached and chained(if there are multiple encoding passes) thus the
-    # cost is decreased to one brocasting to `getindex` and `setindex!`.
-    encoding_table = build_LBP_encoding_table(UInt8; rotation=rotation, uniform_degree=uniform_degree)
-    if !isnothing(encoding_table)
-        @. out = encoding_table[out + 1]
+    for F in lookups
+        @. out = F[out]
     end
 
     return out
 end
 
-function lbp_original(X::AbstractArray, npoints, radius, interpolation=Linear(); kwargs...)
-    # TODO(johnnychen94): support npoints=24 as [2, 4] indicate
-    4<= npoints <= 8 || throw(ArgumentError("currently only support 4<= npoints <=8, instead it is $(npoints)."))
-    interpolation = wrap_BSpline(interpolation)
-    offsets = _circular_neighbor_offsets(npoints, radius)
-    if interpolation == BSpline(Constant())
-        offsets = map(offsets) do o
-            round.(Int, o, RoundToZero)
-        end
-        itp = X
-    else
-        itp = interpolate(X, interpolation)
+function _build_lbp_original_lookup(
+        ::Type{T}, nbits;
+        rotation::Bool,
+        uniform_degree::Union{Nothing,Int}
+    ) where T <: Unsigned
+    # TODO(johnnychen94): fuse these operation into one broadcasting could potentially give
+    # better performance.
+    lookups = []
+    if rotation
+        push!(lookups, rotation_encoding_table(T, nbits))
     end
-    lbp_original!(similar(X, UInt8), itp, offsets; kwargs...)
+    if !isnothing(uniform_degree)
+        push!(lookups, uniform_encoding_table(T, nbits, uniform_degree))
+    end
+    return lookups
 end

@@ -292,8 +292,8 @@ Base.@propagate_inbounds function average_mode(X, I::CartesianIndex, offsets)
     ax = axes(X)
     rst = v + mapreduce(+, offsets) do o
         p = I.I .+ o
-        inbound = mapreduce(in, &, p, ax)
-        inbound ? _inbounds_getindex(X, p) : v
+        inbounds = map(in, p, ax)
+        all(inbounds) ? _inbounds_getindex(X, p) : v
     end
     return rst / (length(offsets) + 1)
 end

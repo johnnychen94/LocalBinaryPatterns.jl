@@ -1,6 +1,7 @@
 module LocalBinaryPatterns
 
 using TiledIteration: EdgeIterator
+using Interpolations
 using ImageCore
 using ImageCore.OffsetArrays
 using StaticArrays

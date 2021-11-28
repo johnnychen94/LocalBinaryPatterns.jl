@@ -1,6 +1,7 @@
 using LocalBinaryPatterns
 using ImageCore
 using ImageCore.OffsetArrays
+using Interpolations
 using Test
 using Aqua, Documenter
 

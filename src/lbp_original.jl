@@ -5,8 +5,8 @@ Compute the local binary pattern of gray image `X` using the original method.
 
 # Arguments
 
-- `f`: `f(X, I, offsets)` computes the block mode value. In the original version [1]
-  it directly uses the center pixel value, i.e., `f(X, I, offsets) = X[I]`.
+- `f`: function `f(X, I, offsets)` computes the block mode value. In the original version
+  [1] it directly uses the center pixel value, i.e., `f(X, I, offsets) = X[I]`.
   See also [`average_mode`](@ref LocalBinaryPatterns).
 - `X::AbstractMatrix`: the input image matrix. For colorful images, one can manually convert
   it to some monochrome space, e.g., `Gray`, the L-channel of `Lab`. One could also do
@@ -120,14 +120,24 @@ This produces better result for `rotation=true` case but is usually slower than 
 
 # Arguments
 
-- `npoints::Int`(4 ≤ npoints ≤ 32): the number of (uniform-spaced) neighborhood points. It
-    is recommended to use one of {4, 8, 12, 16, 24}.
+- `npoints::Int`(4 ≤ npoints ≤ 32): the number of (uniform-spaced) neighborhood points.
 - `radius::Real`(radius ≥ 1.0): the radius of the circular. Larger radius computes the
     pattern of a larger local window/block.
 - `interpolation::Union{Degree, InterpolationType}=Linear()`: the interpolation method used
     to generate non-grid pixel value. In most cases, `Linear()` are good enough. One can
     also try other costly interpolation methods, e.g., `Cubic(Line(OnGrid()))`(also known as
     "bicubic"), `Lanczos()`. See also Interpolations.jl for more choices.
+
+!!! info "parameter choices"
+    The following parameters are used in [1], with `interpolation=Linear()`.
+
+    | `npoints` | `radius` |
+    | --- | --- |
+    | ``4`` | ``1.0`` |
+    | ``8`` | ``1.0`` |
+    | ``12`` | ``1.5`` |
+    | ``16`` | ``2.0`` |
+    | ``24`` | ``3.0`` |
 
 !!! note "neighborhood order differences"
     Different implementation might use different neighborhood orders; this will change the
@@ -158,6 +168,9 @@ julia> lbp_original(X, 4, 1; rotation=true)
  0x00000001  0x00000007  0x00000000
 ```
 
+# References
+
+- [1] T. Ojala, M. Pietikainen, and T. Maenpaa, “Multiresolution gray-scale and rotation invariant texture classification with local binary patterns,” _IEEE Trans. Pattern Anal. Machine Intell._, vol. 24, no. 7, pp. 971–987, Jul. 2002, doi: 10.1109/TPAMI.2002.1017623.
 """
 function lbp_original(
         f, X::AbstractArray, npoints::Int, radius::Real, interpolation=Linear();

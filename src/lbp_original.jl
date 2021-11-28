@@ -11,31 +11,36 @@ neighborhood matrix.
 - `X::AbstractMatrix`: the input image matrix. For colorful images, one can manually convert
   it to some monochrome space, e.g., `Gray` or the L-channel of `Lab`.
 
-[2,4] proposes a generalized interpolation-based version using circular neighborhood matrix, it
-produces better result for `rotation=true` case but is usually much slower than the plain 3x3
-matrix version. The arguments for this version are:
+[2,4] proposes a generalized interpolation-based version using circular neighborhood matrix,
+it produces better result for `rotation=true` case but is usually much slower than the plain
+3x3 matrix version. The arguments for this version are:
 
 - `npoints::Int`(4 ≤ npoints ≤ 8): the number of (uniform-spaced) neighborhood points.
 - `radius::Real`(radius ≥ 1.0): the radius of the circular.
 - `interpolation::Union{Degree, InterpolationType}=Linear()`: the interpolation method used
-  to generate non-grid pixel value. See also Interpolations.jl for more options.
+  to generate non-grid pixel value. In most cases, `Linear()` are good enough. One can also
+  try other costly interpolation methods, e.g., `Cubic(Line(OnGrid()))`(also known as
+  "bicubic"), `Lanczos()`. See also Interpolations.jl for more choices.
 
-!!! note "Offset encoding differences"
-    Different implementation might use different offsets orders; this will change the encoding
-    result but will not change the overall distribution.
+!!! note "neighborhood order differences"
+    Different implementation might use different neighborhood orders； this will change the
+    encoding result but will not change the overall distribution. For instance,
+    `lbp_original(X)` differs from `lbp_original(X, 8, 1, Constant())` only by how `offsets`
+    (see below) are ordered; the former uses column-major top-left to bottom-right 3x3 matrix
+    order and the latter uses circular order.
 
 Arguments for in-place version:
 
 - `offsets::Tuple`: tuple of neighborhood matrix, e.g., `((0, 1), (0, -1), (1, 0), (-1, 0))`
   specifies the 4-neighborhood matrix. If `X isa Interpolations.AbstractInterpolation`
-  holds, then the values can be float numbers, e.g, `(0.7, 0.7)`.
+  holds, then the position values can be float numbers, e.g, `(0.7, 0.7)`.
 
 # Parameters
 
-The parameters control whether and the degree additional encoding passses are used to get
-patterns that are more robust to certain changes, e.g., rotation. The following lists are
-ordered as encoding order. For example, if `rotation=true` and `uniform_degree=2`, then
-rotation encoding will be applied first.
+The parameters control whether and what degree additional encoding passses are used to
+compute more patterns that are more robust/invariant to certain changes, e.g., rotation. The
+following lists are ordered as encoding order. For example, if `rotation=true` and
+`uniform_degree=2`, then rotation encoding will be applied first.
 
 - `rotation=false`: set `true` to generate patterns that are invariant to rotation [3]. For
   example, pattern `0b00001101` is equivalent to `0b01000011` when `rotation=true`.

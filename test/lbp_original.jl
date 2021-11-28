@@ -12,11 +12,6 @@
     # ensure default parameter values are not changed accidently
     @test out == lbp_original(X; rotation=false, uniform_degree=nothing)
 
-    fill!(out, 0)
-    offsets = ((-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1))
-    lbp_original!(out, X, offsets)
-    @test out == ref_out
-
     # intensity-invariant
     @test lbp_original(X./255) == out
     # Gray inputs
@@ -70,14 +65,14 @@ end
     X = [6 7 9; 5 6 3; 2 1 7]
     ref_out = [1 1 0; 3 2 14; 2 7 0]
     out = lbp_original(X, 4, 1)
-    @test eltype(out) == UInt8
+    @test eltype(out) == UInt32
     @test size(out) == (3, 3)
     @test out == ref_out
 
     X = [6 7 9; 5 6 3; 2 1 7]
     ref_out = [129 1 0; 7 14 124; 6 31 0]
     out = lbp_original(X, 8, 1)
-    @test eltype(out) == UInt8
+    @test eltype(out) == UInt32
     @test size(out) == (3, 3)
     @test out == ref_out
 
@@ -100,27 +95,27 @@ end
 
     @testset "Rotation Invariant" begin
         X = [6 7 9; 5 6 3; 2 1 7]
-        ref_out = [3 1 0; 7 7 31; 3 31 0]
+        ref_out = [129 1 0; 7 7 31; 3 31 0]
         out = lbp_original(X, 8, 1; rotation=true)
-        @test eltype(out) == UInt8
+        @test eltype(out) == UInt32
         @test size(out) == (3, 3)
         @test out == ref_out
     end
 
     @testset "Uniform encoding" begin
         X = [6 7 9; 5 6 3; 2 1 7]
-        ref_out = [9 1 0; 7 14 124; 6 31 0]
+        ref_out = [33 1 0; 33 33 33; 33 33 0]
         out = lbp_original(X, 8, 1; uniform_degree=2)
-        @test eltype(out) == UInt8
+        @test eltype(out) == UInt32
         @test size(out) == (3, 3)
         @test out == ref_out
     end
 
     @testset "Rotation Invariant, Uniform encoding" begin
         X = [6 7 9; 5 6 3; 2 1 7]
-        ref_out = [3 1 0; 7 7 31; 3 31 0]
+        ref_out = [33 1 0; 33 33 33; 33 33 0]
         out = lbp_original(X, 8, 1; rotation=true, uniform_degree=2)
-        @test eltype(out) == UInt8
+        @test eltype(out) == UInt32
         @test size(out) == (3, 3)
         @test out == ref_out
     end
@@ -137,7 +132,7 @@ end
                    1   0   0   6   6
                    1   0   0   6   6]
         out = lbp_original(X, 4, 2)
-        @test eltype(out) == UInt8
+        @test eltype(out) == UInt32
         @test size(out) == (5, 5)
         @test out == ref_out
 

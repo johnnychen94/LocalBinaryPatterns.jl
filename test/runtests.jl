@@ -16,6 +16,9 @@ using Aqua, Documenter
     end
 end
 
+include("bitrotate_encoding.jl")
+include("uniform_encoding.jl")
+
 include("lbp_original.jl")
 
 end

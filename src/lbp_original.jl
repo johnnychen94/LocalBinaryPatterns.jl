@@ -3,8 +3,7 @@
     lbp_original(X, npoints, radius, interpolation=Linear(); kwargs...)
     lbp_original!(out, X, offsets; kwargs...)
 
-Compute the local binary pattern, the original version, of gray image `X` using 3x3
-neighborhood matrix.
+Compute the local binary pattern of gray image `X` using the original method.
 
 # Arguments
 
@@ -23,7 +22,7 @@ it produces better result for `rotation=true` case but is usually much slower th
   "bicubic"), `Lanczos()`. See also Interpolations.jl for more choices.
 
 !!! note "neighborhood order differences"
-    Different implementation might use different neighborhood orders； this will change the
+    Different implementation might use different neighborhood orders; this will change the
     encoding result but will not change the overall distribution. For instance,
     `lbp_original(X)` differs from `lbp_original(X, 8, 1, Constant())` only by how `offsets`
     (see below) are ordered; the former uses column-major top-left to bottom-right 3x3 matrix
@@ -118,9 +117,9 @@ patterns are called "uniform" as they contain very few spatial transitions. Unif
 is an additional encoding pass that controls at what circumstances can we set the block to
 miscellaneous class.
 
-For example, if `uniform_degree=2`, then `0b00001101` will be encoded as `9` (type
-miscellaneous) because it has ``3`` bit transitions, and `0b00001100` will be unchanged
-because it only has ``2`` bit transitions.
+For example, in 8-bit mode, if `uniform_degree=2`, then `0b00001101` will be encoded as `9`
+(type miscellaneous) because it has ``3`` bit transitions, and `0b00001100` will be
+unchanged because it only has ``2`` bit transitions.
 
 # References
 

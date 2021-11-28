@@ -30,4 +30,5 @@ using LocalBinaryPatterns: RotationEncodingTable, rotation_encoding_table
     lookup = rotation_encoding_table(UInt8, 0:255)
     new_lookup = rotation_encoding_table(UInt8, 0:255)
     @test lookup === new_lookup
+    @test lookup === rotation_encoding_table(UInt8, 8)
 end

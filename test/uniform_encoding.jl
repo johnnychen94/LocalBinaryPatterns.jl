@@ -6,6 +6,7 @@ using LocalBinaryPatterns: uniform_encoding_table
 
     # repeat calls are cached in global dictionary
     @test lookup === new_lookup
+    @test lookup === uniform_encoding_table(UInt8, 8, 2)
 
     X_UInt8 = uniform_encoding_table(UInt8, 0:255, 2)
     @test X_UInt8[0b0000_0001] == 0b0000_0001
@@ -20,4 +21,6 @@ using LocalBinaryPatterns: uniform_encoding_table
     X_UInt16 = uniform_encoding_table(UInt16, 0:255, 2)
     @test X_UInt16[0b0000_0001] == 0b0000_0001
     @test X_UInt16[0b0000_0101] == 17
+
+    @test_throws ArgumentError uniform_encoding_table(UInt8, 0:65535, 2)
 end

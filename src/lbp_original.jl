@@ -1,10 +1,13 @@
 """
-    lbp_original(X; [rotation], [uniform_degree])
+    lbp_original([f], X; [rotation], [uniform_degree])
 
 Compute the local binary pattern of gray image `X` using the original method.
 
 # Arguments
 
+- `f`: `f(X, I, offsets)` computes the block mode value. In the original version [1]
+  it directly uses the center pixel value, i.e., `f(X, I, offsets) = X[I]`.
+  See also [`average_mode`](@ref LocalBinaryPatterns).
 - `X::AbstractMatrix`: the input image matrix. For colorful images, one can manually convert
   it to some monochrome space, e.g., `Gray`, the L-channel of `Lab`. One could also do
   channelwise LBP and then concatenate together.
@@ -97,17 +100,17 @@ unchanged because it only has ``2`` bit transitions.
 - [3] Pietikäinen, Matti, Timo Ojala, and Zelin Xu. "Rotation-invariant texture classification using feature distributions." _Pattern recognition_ 33.1 (2000): 43-52.
 - [4] T. Ojala, M. Pietikainen, and T. Maenpaa, “Multiresolution gray-scale and rotation invariant texture classification with local binary patterns,” _IEEE Trans. Pattern Anal. Machine Intell._, vol. 24, no. 7, pp. 971–987, Jul. 2002, doi: 10.1109/TPAMI.2002.1017623.
 """
-function lbp_original(X::AbstractArray; rotation::Bool=false, uniform_degree::Union{Nothing,Int}=nothing)
+function lbp_original(f, X::AbstractArray; rotation::Bool=false, uniform_degree::Union{Nothing,Int}=nothing)
     # The original version [1] uses clockwise order; here we use anti-clockwise order
     # because Julia is column-major order. If we consider memory order differences then they
     # are equivalent.
     offsets = ((-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1))
     lookups = _build_lbp_original_lookup(UInt8, 8; rotation=rotation, uniform_degree=uniform_degree)
-    lbp_original!(similar(X, UInt8), X, offsets, lookups)
+    lbp_original!(similar(X, UInt8), f, X, offsets, lookups)
 end
 
 """
-    lbp_original(X, npoints, radius, interpolation=Linear(); [rotation], [uniform_degree])
+    lbp_original([f], X, npoints, radius, interpolation=Linear(); [rotation], [uniform_degree])
 
 Compute the local binary pattern of gray image `X` using the interpolation-based original
 method with circular neighborhood matrix.
@@ -157,7 +160,7 @@ julia> lbp_original(X, 4, 1; rotation=true)
 
 """
 function lbp_original(
-        X::AbstractArray, npoints, radius, interpolation=Linear();
+        f, X::AbstractArray, npoints::Int, radius::Real, interpolation=Linear();
         rotation::Bool=false, uniform_degree::Union{Nothing,Int}=nothing)
     interpolation = wrap_BSpline(interpolation)
     offsets = _circular_neighbor_offsets(npoints, radius)
@@ -171,11 +174,17 @@ function lbp_original(
     end
     # For the sake of type-stability, hardcode to UInt32 here.
     lookups = _build_lbp_original_lookup(UInt32, npoints, rotation=rotation, uniform_degree=uniform_degree)
-    lbp_original!(similar(X, UInt32), itp, offsets, lookups)
+    lbp_original!(similar(X, UInt32), f, itp, offsets, lookups)
+end
+
+lbp_original(X::AbstractArray; kwargs...) = lbp_original(_default_lbp_f, X; kwargs...)
+function lbp_original(X::AbstractArray, npoints::Int, radius::Real, interpolation=Linear(); kwargs...)
+    lbp_original(_default_lbp_f, X, npoints, radius, interpolation; kwargs...)
 end
 
 function lbp_original!(
         out,
+        f,
         X::AbstractMatrix{T},
         offsets::Tuple,
         lookups::Vector
@@ -190,7 +199,7 @@ function lbp_original!(
 
     # TODO(johnnychen94): use LoopVectorization
     @inbounds for I in innerR
-        gc = X[I]
+        gc = f(X, I, offsets)
         # This inner loop fuses the binary pattern build stage and encoding stage for
         # better performance.
         rst = 0
@@ -203,7 +212,8 @@ function lbp_original!(
 
     # boundary conditions are undefined in [1]; here we directly skip out-of-boundary values
     @inbounds for I in EdgeIterator(outerR, innerR)
-        gc = X[I]
+        # this requires `f` to not propagate @inbounds unless it is plain `X[I]`
+        gc = f(X, I, offsets)
         rst = 0
         for i in 1:length(offsets)
             p = I.I .+ offsets[i]
@@ -235,4 +245,42 @@ function _build_lbp_original_lookup(
         push!(lookups, uniform_encoding_table(T, nbits, uniform_degree))
     end
     return lookups
+end
+
+Base.@propagate_inbounds _default_lbp_f(X, I, offsets) = X[I]
+
+"""
+    average_mode(X, I, offsets) -> value
+    lbp_original(average_mode, X, args...; kwargs...)
+
+Compute the local binary pattern using the average mode of the block.
+
+Original local binary pattern compares the neighbors with the center value `X[I]`, this
+modified version instead uses the mean value of the block.
+
+```jldoctest; setup=:(using LocalBinaryPatterns)
+julia> using LocalBinaryPatterns: average_mode
+
+julia> X = [6 7 9; 5 6 3; 2 1 7]
+3×3 $(Matrix{Int}):
+ 6  7  9
+ 5  6  3
+ 2  1  7
+
+julia> lbp_original(average_mode, X)
+3×3 $(Matrix{UInt8}):
+ 0xc0  0x40  0x00
+ 0x68  0xa9  0x1b
+ 0x28  0x69  0x01
+```
+"""
+Base.@propagate_inbounds function average_mode(X, I::CartesianIndex, offsets)
+    v = X[I]
+    ax = axes(X)
+    rst = v + mapreduce(+, offsets) do o
+        p = I.I .+ o
+        inbound = mapreduce(in, &, p, ax)
+        inbound ? _inbounds_getindex(X, p) : v
+    end
+    return rst / (length(offsets) + 1)
 end

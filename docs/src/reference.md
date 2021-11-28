@@ -4,6 +4,12 @@
 lbp_original
 ```
 
+## Helpers
+
+```@docs
+LocalBinaryPatterns.average_mode
+```
+
 ## Internal utilities
 
 ```@docs

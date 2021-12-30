@@ -12,11 +12,14 @@ on_CI = haskey(ENV, "GITHUB_ACTIONS")
 
 img = testimage("cameraman")
 tst_sizes = (256, 512)
-tst_types = (N0f8, Float32, Gray{N0f8}, Gray{Float32})
+tst_types = (Gray{N0f8}, Gray{Float32})
 
 const SUITE = BenchmarkGroup()
 
-alg_list = (( "Original", lbp_original),
+alg_list = (("Original", lbp_original),
+            ("Multi-block (1x1)", img->multiblock_lbp(img, (1, 1))),
+            ("Multi-block (3x3)", img->multiblock_lbp(img, (3, 3))),
+            ("Multi-block (5x5)", img->multiblock_lbp(img, (5, 5))),
             )
 
 function add_algorithm_benchmark!(suite, img, alg_name, alg;

@@ -4,6 +4,14 @@ stages:
   - test
   - deploy
 
+variables:
+  JULIA_DEPOT_PATH: $CI_PROJECT_DIR/.julia
+
+cache:
+  key: $CI_COMMIT_REF_SLUG
+  paths:
+    - .julia
+
 .test_template: &test_base
   stage: test
   script:

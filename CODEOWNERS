@@ -1,0 +1,2 @@
+# The .jlab directory is used to setup CI in private self-hosted Gitlab instance
+.jlab/ @johnnychen94

@@ -12,7 +12,7 @@ on_CI = haskey(ENV, "GITHUB_ACTIONS")
 
 img = testimage("cameraman")
 tst_sizes = (256, 512)
-tst_types = (N0f8, Float32, Gray{N0f8}, Gray{Float32})
+tst_types = (Gray{N0f8}, Gray{Float32})
 
 const SUITE = BenchmarkGroup()
 

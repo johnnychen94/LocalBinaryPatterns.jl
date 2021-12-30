@@ -2,14 +2,17 @@
     multiblock_lbp(X, block_size; [rotation], [uniform_degree])
 
 Compute the local binary pattern of gray image `X` of image blocks with size `block_size`.
+This method is usually called MB-LBP[1] or Locally Assembled Binary (LAB) feature[2] in the
+literature.
 
 # Arguments
 
 - `X::AbstractMatrix`: the input image matrix. For colorful images, one can manually convert
   it to some monochrome space, e.g., `Gray`, the L-channel of `Lab`. One could also do
   channelwise LBP and then concatenate together.
-- `block_size::Tuple{Int,Int}`: odd integers that used to specify the size of each block. When
-  `block_size == (1, 1)`, this method degenerates to the pixel-version [`lbp_original`](@ref).
+- `block_size::Tuple{Int,Int}`: positive integers that used to specify the size of each
+  block. When `block_size == (1, 1)`, this method degenerates to the pixel-version
+  [`lbp_original`](@ref).
 
 For the meaning and values of parameters `rotation` and `uniform_degree` please see the docs
 of [`lbp_original`](@ref).
@@ -29,21 +32,21 @@ julia> X = zeros(Int, 9, 9); X[1:3, 1:3] .= 50; X[4:6, 4:6] .= 1; X[7:9, 7:9] .=
   0   0   0  0  0  0  50  50  50
   0   0   0  0  0  0  50  50  50
 
-julia> multiblock_lbp(X, (3, 3))[5, 5] # 0b1000_0001
+julia> multiblock_lbp(X, (3, 3))[4, 4] # 0b1000_0001
 0x81
 
-julia> multiblock_lbp(X, (3, 3); rotation=true)[5, 5] # 0b0000_0011
+julia> multiblock_lbp(X, (3, 3); rotation=true)[4, 4] # 0b0000_0011
 0x03
 
-julia> multiblock_lbp(X, (3, 3); uniform_degree=2)[5, 5] # 0x09 (i.e., miscellaneous pattern)
+julia> multiblock_lbp(X, (3, 3); uniform_degree=2)[4, 4] # 0x09 (i.e., miscellaneous pattern)
 0x09
 ```
 
 # Extended help
 
-The following is how the block-version of local binary pattern computed with
-`block_size=(3, 3)`. Check out [`lbp_original`](@ref) for more details of the original
-pixel-version of local binary pattern.
+The following is how the block-version of local binary pattern computed with `block_size=(3,
+3)`. Check out [`lbp_original`](@ref) for more details of the original pixel-version of
+local binary pattern.
 
 ```text
 2  3  2  |  7  6  6  |  2  1  3
@@ -62,6 +65,7 @@ pixel-version of local binary pattern.
 # References
 
 - [1] Zhang, Lun, et al. "Face detection based on multi-block lbp representation." _International conference on biometrics_. Springer, Berlin, Heidelberg, 2007.
+- [2] Yan, Shengye, et al. "Locally assembled binary (LAB) feature with feature-centric cascade for fast and accurate face detection." _2008 IEEE Conference on Computer Vision and Pattern Recognition_. IEEE, 2008.
 """
 function multiblock_lbp(X::AbstractArray, block_size::Dims{2}; rotation::Bool=false, uniform_degree::Union{Nothing,Int}=nothing)
     offsets = ((-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1))
@@ -70,11 +74,10 @@ function multiblock_lbp(X::AbstractArray, block_size::Dims{2}; rotation::Bool=fa
 end
 
 function multiblock_lbp!(out, X::AbstractMatrix, offsets, lookups, block_size::Dims{2})
-    all(isodd, block_size) || throw(ArgumentError("block size `block_size=$(block_size)` should be odd numbers."))
+    all(block_size .> 0) || throw(ArgumentError("block size `block_size=$(block_size)` should be positive numbers."))
     offsets = map(offsets) do o
         o .* block_size
     end
-    bo = CartesianIndex(block_size .÷ 2)
 
     # It's computationally more efficient to use integral array to compute
     # the mean block value.
@@ -85,12 +88,14 @@ function multiblock_lbp!(out, X::AbstractMatrix, offsets, lookups, block_size::D
         ceil(Int, maximum(abs.(extrema(first.(offsets))))),
         ceil(Int, maximum(abs.(extrema(last.(offsets)))))
     )
-    innerR = first(outerR)+r+bo:last(outerR)-r-bo
+
+    bo = CartesianIndex(block_size .- 1)
+    innerR = first(outerR)+r:last(outerR)-r-bo
 
     # TODO(johnnychen94): use LoopVectorization
     @inbounds for I in innerR
         # since the block is regular for inner region, doing sum is equivalent to doing average.
-        gc = iX[I-bo..I+bo]
+        gc = iX[I..I+bo]
         # This inner loop fuses the binary pattern build stage and encoding stage for
         # better performance.
         rst = 0
@@ -98,20 +103,20 @@ function multiblock_lbp!(out, X::AbstractMatrix, offsets, lookups, block_size::D
         #                     Need to skip the boundary check in IntegralArray.
         for i in 1:length(offsets)
             p = CartesianIndex(I.I .+ offsets[i])
-            rst += ifelse(gc <= iX[p-bo..p+bo], 1, 0) << (i-1)
+            rst += ifelse(gc <= iX[p..p+bo], 1, 0) << (i-1)
         end
         out[I] = rst
     end
 
     # boundary conditions are undefined in [1]; here we directly skip out-of-boundary values
     @inbounds for I in EdgeIterator(outerR, innerR)
-        R = max(I-bo, first(outerR)):min(I+bo, last(outerR))
+        R = I:min(I+bo, last(outerR))
         gc = iX[first(R)..last(R)]/length(R)
         rst = 0
         for i in 1:length(offsets)
             p = CartesianIndex(I.I .+ offsets[i])
             checkbounds(Bool, X, p.I...) || continue
-            Rp = max(p-bo, first(outerR)):min(p+bo, last(outerR))
+            Rp = p:min(p+bo, last(outerR))
             gp = iX[first(Rp)..last(Rp)]/length(Rp)
             rst += ifelse(gc <=gp, 1, 0) << (i-1)
         end

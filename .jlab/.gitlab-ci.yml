@@ -2,6 +2,7 @@ image: gitlab.jlab.pro:5050/jlab/gpu-dev
 
 stages:
   - test
+  - deploy
 
 .test_template: &test_base
   stage: test
@@ -12,8 +13,46 @@ stages:
                           Pkg.build();
                           Pkg.test();'
 
-test:
+.benchmark_template: &benchmark_base
+  stage: test
+  script:
+    - julia --color=yes --project=benchmark -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate(); Pkg.build()'
+    - julia --color=yes --project=benchmark -e '
+        using PkgBenchmark;
+        results = benchmarkpkg("LocalBinaryPatterns");
+        export_markdown("benchmark_report.md", results)
+      '
+  artifacts:
+    paths:
+      - benchmark_report.md
+
+unit test:
   <<: *test_base
   tags:
     - nvidia-docker
     - ubuntu
+
+benchmark:
+  <<: *benchmark_base
+  only:
+    changes:
+      - benchmark/*
+      - src/*
+      - Project.toml
+  tags:
+    - nvidia-docker
+    - ubuntu
+
+# requires environment variable REPO_TOKEN set up
+# see https://gitlab.com/iterative.ai/cml-base-case
+deploy:
+  stage: deploy
+  tags:
+    - nvidia-docker
+    - ubuntu
+  script:
+    - touch placeholder_report.md
+    - printf "<details>\n  <summary> CML report </summary>\n\n" > report.final.md
+    - cat *report.md >> report.final.md
+    - printf "\n</details>" >> report.final.md
+    - cml-send-comment report.final.md

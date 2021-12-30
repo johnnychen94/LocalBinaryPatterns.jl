@@ -1,0 +1,19 @@
+image: gitlab.jlab.pro:5050/jlab/gpu-dev
+
+stages:
+  - test
+
+.test_template: &test_base
+  stage: test
+  script:
+    - julia --color=yes -e 'using InteractiveUtils; versioninfo()'
+    - julia --color=yes --project -e 'using Pkg;
+                          Pkg.instantiate();
+                          Pkg.build();
+                          Pkg.test();'
+
+test:
+  <<: *test_base
+  tags:
+    - nvidia-docker
+    - ubuntu

@@ -2,6 +2,8 @@
     multiblock_lbp(X, block_size; [rotation], [uniform_degree])
 
 Compute the local binary pattern of gray image `X` of image blocks with size `block_size`.
+This method is usually called MB-LBP[1] or Locally Assembled Binary (LAB) feature[2] in the
+literature.
 
 # Arguments
 
@@ -63,6 +65,7 @@ local binary pattern.
 # References
 
 - [1] Zhang, Lun, et al. "Face detection based on multi-block lbp representation." _International conference on biometrics_. Springer, Berlin, Heidelberg, 2007.
+- [2] Yan, Shengye, et al. "Locally assembled binary (LAB) feature with feature-centric cascade for fast and accurate face detection." _2008 IEEE Conference on Computer Vision and Pattern Recognition_. IEEE, 2008.
 """
 function multiblock_lbp(X::AbstractArray, block_size::Dims{2}; rotation::Bool=false, uniform_degree::Union{Nothing,Int}=nothing)
     offsets = ((-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1))

@@ -1,7 +1,77 @@
-"""
-    lbp_original([f], X; [rotation], [uniform_degree])
+###
+# Various LBP modes
+###
 
-Compute the local binary pattern of gray image `X` using the original method.
+abstract type LocalBinaryPattern end
+
+struct LBP{N,F} <: LocalBinaryPattern
+    mode::F # mode(X::AbstractArray{T,N}, I::CartesianIndex{N}, offsets::Tuple)
+    block_size::Dims{N}
+    function LBP(mode::F, block_size::Dims{N}) where {N,F}
+        all(block_size .> 0) || throw(ArgumentError("block size `block_size=$(block_size)` should be positive integers."))
+        new{N, F}(mode, block_size)
+    end
+end
+LBP{N}(mode, block_size::Int=1) where N = LBP(mode, ntuple(_->block_size, N))
+
+Base.@propagate_inbounds _default_lbp_mode(X, I, offsets) = X[I]
+Base.@propagate_inbounds function _default_lbp_mode(X::IntegralArray, I, bo, offsets)
+    Rp = I:min(I+bo, last(CartesianIndices(X)))
+    X[first(Rp)..last(Rp)]/length(Rp)
+end
+
+Base.@propagate_inbounds function lbp_encode(lbp::LBP, X::AbstractMatrix, I::CartesianIndex{2}, offsets::Tuple)
+    rst = 0
+    gc = lbp.mode(X, I, offsets)
+    for i in 1:length(offsets)
+        p = I.I .+ offsets[i]
+        @boundscheck checkbounds(Bool, X, p...) || continue
+        rst += ifelse(gc <= _inbounds_getindex(X, p), 1, 0) << (i-1)
+    end
+    return rst
+end
+
+
+Base.@propagate_inbounds function mlbp_encode_inbounds(
+        lbp::LBP,
+        iX::IntegralArray,
+        I::CartesianIndex{2},
+        bo::CartesianIndex{2},
+        offsets::Tuple)
+    rst = 0
+    gc = lbp.mode(iX, I, bo, offsets)
+    n = prod(bo.I .+ 1)
+    for i in 1:length(offsets)
+        p = CartesianIndex(I.I .+ offsets[i])
+        rst += ifelse(gc <= iX[p..p+bo]/n, 1, 0) << (i-1)
+    end
+    return rst
+end
+function mlbp_encode(
+        lbp::LBP,
+        iX::IntegralArray,
+        I::CartesianIndex{2},
+        bo::CartesianIndex{2},
+        offsets::Tuple)
+    rst = 0
+    Rlast = last(CartesianIndices(iX))
+    gc = lbp.mode(iX, I, bo, offsets)
+    for i in 1:length(offsets)
+        p = CartesianIndex(I.I .+ offsets[i])
+        checkbounds(Bool, iX, p.I...) || continue
+        Rp = p:min(p+bo, Rlast)
+        gp = iX[first(Rp)..last(Rp)]/length(Rp)
+        rst += ifelse(gc <= gp, 1, 0) << (i-1)
+    end
+    return rst
+end
+
+
+# non-interpolation version
+"""
+    local_binary_pattern([f], X; [rotation], [uniform_degree])
+
+Compute the local binary pattern of gray image `X`.
 
 # Arguments
 
@@ -33,19 +103,19 @@ julia> X = [6 7 9; 5 6 3; 2 1 7]
  5  6  3
  2  1  7
 
-julia> lbp_original(X)
+julia> local_binary_pattern(X)
 3×3 $(Matrix{UInt8}):
  0xc0  0x40  0x00
  0x68  0xa9  0x1b
  0x28  0x6b  0x00
 
-julia> lbp_original(X; rotation=true)
+julia> local_binary_pattern(X; rotation=true)
 3×3 $(Matrix{UInt8}):
  0x03  0x01  0x00
  0x0d  0x35  0x1b
  0x05  0x5b  0x00
 
-julia> lbp_original(X; uniform_degree=2)
+julia> local_binary_pattern(X; uniform_degree=2)
 3×3 $(Matrix{UInt8}):
  0xc0  0x40  0x00
  0x09  0x09  0x09
@@ -100,23 +170,25 @@ unchanged because it only has ``2`` bit transitions.
 - [3] Pietikäinen, Matti, Timo Ojala, and Zelin Xu. "Rotation-invariant texture classification using feature distributions." _Pattern recognition_ 33.1 (2000): 43-52.
 - [4] T. Ojala, M. Pietikainen, and T. Maenpaa, “Multiresolution gray-scale and rotation invariant texture classification with local binary patterns,” _IEEE Trans. Pattern Anal. Machine Intell._, vol. 24, no. 7, pp. 971–987, Jul. 2002, doi: 10.1109/TPAMI.2002.1017623.
 """
-function lbp_original(f, X::AbstractArray; rotation::Bool=false, uniform_degree::Union{Nothing,Int}=nothing)
+function local_binary_pattern(f, X::AbstractArray; rotation::Bool=false, uniform_degree::Union{Nothing,Int}=nothing)
     # The original version [1] uses clockwise order; here we use anti-clockwise order
     # because Julia is column-major order. If we consider memory order differences then they
     # are equivalent.
     offsets = ((-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1))
-    lookups = _build_lbp_original_lookup(UInt8, 8; rotation=rotation, uniform_degree=uniform_degree)
-    lbp_original!(similar(X, UInt8), f, X, offsets, lookups)
+    lookups = _build_local_binary_pattern_lookup(UInt8, 8; rotation=rotation, uniform_degree=uniform_degree)
+    local_binary_pattern!(similar(X, UInt8), LBP{ndims(X)}(f), X, offsets, lookups)
 end
+local_binary_pattern(X::AbstractArray; kwargs...) = local_binary_pattern(_default_lbp_mode, X; kwargs...)
 
+# interpolation version
 """
-    lbp_original([f], X, npoints, radius, interpolation=Linear(); [rotation], [uniform_degree])
+    local_binary_pattern([f], X, npoints, radius, interpolation=Linear(); [rotation], [uniform_degree])
 
 Compute the local binary pattern of gray image `X` using the interpolation-based original
 method with circular neighborhood matrix.
 
 This produces better result for `rotation=true` case but is usually slower than the plain
-3x3 matrix version `lbp_original(X)`.
+3x3 matrix version `local_binary_pattern(X)`.
 
 # Arguments
 
@@ -142,8 +214,8 @@ This produces better result for `rotation=true` case but is usually slower than 
 !!! note "neighborhood order differences"
     Different implementation might use different neighborhood orders; this will change the
     encoding result but will not change the overall distribution. For instance,
-    `lbp_original(X)` differs from `lbp_original(X, 8, 1, Constant())` only by how
-    `offsets` (see below) are ordered; the former uses column-major top-left to
+    `local_binary_pattern(X)` differs from `local_binary_pattern(X, 8, 1, Constant())` only
+    by how `offsets` (see below) are ordered; the former uses column-major top-left to
     bottom-right 3x3 matrix order and the latter uses circular order.
 
 # Examples
@@ -155,13 +227,13 @@ julia> X = [6 7 9; 5 6 3; 2 1 7]
  5  6  3
  2  1  7
 
-julia> lbp_original(X, 4, 1) # 4-neighbor with circular radius 1
+julia> local_binary_pattern(X, 4, 1) # 4-neighbor with circular radius 1
 3×3 $(Matrix{UInt32}):
  0x00000001  0x00000001  0x00000000
  0x00000003  0x00000002  0x0000000e
  0x00000002  0x00000007  0x00000000
 
-julia> lbp_original(X, 4, 1; rotation=true)
+julia> local_binary_pattern(X, 4, 1; rotation=true)
 3×3 $(Matrix{UInt32}):
  0x00000001  0x00000001  0x00000000
  0x00000003  0x00000001  0x00000007
@@ -172,12 +244,13 @@ julia> lbp_original(X, 4, 1; rotation=true)
 
 - [1] T. Ojala, M. Pietikainen, and T. Maenpaa, “Multiresolution gray-scale and rotation invariant texture classification with local binary patterns,” _IEEE Trans. Pattern Anal. Machine Intell._, vol. 24, no. 7, pp. 971–987, Jul. 2002, doi: 10.1109/TPAMI.2002.1017623.
 """
-function lbp_original(
+function local_binary_pattern(
         f, X::AbstractArray, npoints::Int, radius::Real, interpolation=Linear();
         rotation::Bool=false, uniform_degree::Union{Nothing,Int}=nothing)
     interpolation = wrap_BSpline(interpolation)
     offsets = _circular_neighbor_offsets(npoints, radius)
     if interpolation == BSpline(Constant())
+        # performance optimization: skip interpolation when it is nearest neighbor interpolation
         offsets = map(offsets) do o
             round.(Int, o, RoundToZero)
         end
@@ -186,64 +259,140 @@ function lbp_original(
         itp = interpolate(X, interpolation)
     end
     # For the sake of type-stability, hardcode to UInt32 here.
-    lookups = _build_lbp_original_lookup(UInt32, npoints, rotation=rotation, uniform_degree=uniform_degree)
-    lbp_original!(similar(X, UInt32), f, itp, offsets, lookups)
+    lookups = _build_local_binary_pattern_lookup(UInt32, npoints, rotation=rotation, uniform_degree=uniform_degree)
+    local_binary_pattern!(similar(X, UInt32), LBP{ndims(X)}(f), itp, offsets, lookups)
+end
+function local_binary_pattern(X::AbstractArray, npoints::Int, radius::Real, interpolation=Linear(); kwargs...)
+    local_binary_pattern(_default_lbp_mode, X, npoints, radius, interpolation; kwargs...)
 end
 
-lbp_original(X::AbstractArray; kwargs...) = lbp_original(_default_lbp_f, X; kwargs...)
-function lbp_original(X::AbstractArray, npoints::Int, radius::Real, interpolation=Linear(); kwargs...)
-    lbp_original(_default_lbp_f, X, npoints, radius, interpolation; kwargs...)
-end
+# Multi-blocks version
+"""
+    local_binary_pattern([f], X, block_size; [rotation], [uniform_degree])
 
-function lbp_original!(
-        out,
-        f,
-        X::AbstractMatrix{T},
-        offsets::Tuple,
-        lookups::Vector
-        ) where T<:Union{Real,Gray}
+Compute the local binary pattern of gray image `X` of image blocks with size `block_size`.
+This method is usually called MB-LBP[1] or Locally Assembled Binary (LAB) feature[2] in the
+literature.
+
+# Arguments
+
+- `X::AbstractMatrix`: the input image matrix. For colorful images, one can manually convert
+  it to some monochrome space, e.g., `Gray`, the L-channel of `Lab`. One could also do
+  channelwise LBP and then concatenate together.
+- `block_size::Tuple{Int,Int}`: positive integers that used to specify the size of each
+  block. When `block_size == (1, 1)`, this method degenerates to the pixel-version
+  [`local_binary_pattern`](@ref).
+
+For the meaning and values of parameters `rotation` and `uniform_degree` please see the docs
+of [`local_binary_pattern`](@ref).
+
+# Examples
+
+```jldoctest; setup=:(using LocalBinaryPatterns)
+julia> X = zeros(Int, 9, 9); X[1:3, 1:3] .= 50; X[4:6, 4:6] .= 1; X[7:9, 7:9] .= 50; X
+9×9 $(Matrix{Int}):
+ 50  50  50  0  0  0   0   0   0
+ 50  50  50  0  0  0   0   0   0
+ 50  50  50  0  0  0   0   0   0
+  0   0   0  1  1  1   0   0   0
+  0   0   0  1  1  1   0   0   0
+  0   0   0  1  1  1   0   0   0
+  0   0   0  0  0  0  50  50  50
+  0   0   0  0  0  0  50  50  50
+  0   0   0  0  0  0  50  50  50
+
+julia> local_binary_pattern(X, (3, 3))[4, 4] # 0b1000_0001
+0x81
+
+julia> local_binary_pattern(X, (3, 3); rotation=true)[4, 4] # 0b0000_0011
+0x03
+
+julia> local_binary_pattern(X, (3, 3); uniform_degree=2)[4, 4] # 0x09 (i.e., miscellaneous pattern)
+0x09
+```
+
+# Extended help
+
+The following is how the block-version of local binary pattern computed with `block_size=(3,
+3)`. Check out [`local_binary_pattern`](@ref) for more details of the original pixel-version of
+local binary pattern.
+
+```text
+2  3  2  |  7  6  6  |  2  1  3
+1  2  3  |  5  3  4  |  7  7  3
+6  5  4  |  1  4  5  |  1  5  8
+-------------------------------     sum                compare          weighted          sum
+1  2  3  |  1  7  3  |  8  3  7            28  41  37           0  1  0           0 8 0
+1  2  1  |  4  3  6  |  5  2  2     ==>    20  38  45    ==>    0  x  1     ==>   0 x 64  ==> 200
+1  2  7  |  5  3  6  |  4  7  7            33  31  39           0  0  1           0 0 128
+-------------------------------
+4  2  4  |  8  1  5  |  3  7  7
+5  7  4  |  1  1  1  |  3  4  3
+3  3  1  |  5  1  8  |  1  8  3
+```
+
+# References
+
+- [1] Zhang, Lun, et al. "Face detection based on multi-block lbp representation." _International conference on biometrics_. Springer, Berlin, Heidelberg, 2007.
+- [2] Yan, Shengye, et al. "Locally assembled binary (LAB) feature with feature-centric cascade for fast and accurate face detection." _2008 IEEE Conference on Computer Vision and Pattern Recognition_. IEEE, 2008.
+"""
+function local_binary_pattern(f, X::AbstractMatrix, block_size::Dims{2}; rotation::Bool=false, uniform_degree::Union{Nothing,Int}=nothing)
+    offsets = ((-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1))
+    lookups = _build_local_binary_pattern_lookup(UInt8, 8; rotation=rotation, uniform_degree=uniform_degree)
+    local_binary_pattern!(similar(X, UInt8), LBP(f, block_size), X, offsets, lookups)
+end
+local_binary_pattern(X::AbstractMatrix, block_size::Dims{2}; kwargs...) = local_binary_pattern(_default_lbp_mode, X, block_size; kwargs...)
+
+function local_binary_pattern!(out::AbstractMatrix, lbp::LocalBinaryPattern, X::AbstractMatrix, offsets, lookups)
     length(offsets) > 32 && throw(ArgumentError("length(offsets)=$(length(offsets)) is expected to be no larger than 32."))
+
+    block_size = lbp.block_size
+    offsets = map(offsets) do o
+        o .* block_size
+    end
+    bo = CartesianIndex(block_size .- 1)
+
     outerR = CartesianIndices(X)
     r = CartesianIndex(
         ceil(Int, maximum(abs.(extrema(first.(offsets))))),
         ceil(Int, maximum(abs.(extrema(last.(offsets)))))
     )
-    innerR = first(outerR)+r:last(outerR)-r
+    innerR = first(outerR)+r:last(outerR)-r-bo
 
-    # TODO(johnnychen94): use LoopVectorization
-    @inbounds for I in innerR
-        gc = f(X, I, offsets)
-        # This inner loop fuses the binary pattern build stage and encoding stage for
-        # better performance.
-        rst = 0
-        for i in 1:length(offsets)
-            p = I.I .+ offsets[i]
-            rst += ifelse(gc <= _inbounds_getindex(X, p), 1, 0) << (i-1)
+    if block_size == (1, 1)
+        # TODO(johnnychen94): use LoopVectorization
+        @inbounds @simd for I in innerR
+            out[I] = lbp_encode(lbp, X, I, offsets)
         end
-        out[I] = rst
-    end
-
-    # boundary conditions are undefined in [1]; here we directly skip out-of-boundary values
-    @inbounds for I in EdgeIterator(outerR, innerR)
-        # this requires `f` to not propagate @inbounds unless it is plain `X[I]`
-        gc = f(X, I, offsets)
-        rst = 0
-        for i in 1:length(offsets)
-            p = I.I .+ offsets[i]
-            checkbounds(Bool, X, p...) || continue
-            rst += ifelse(gc <= _inbounds_getindex(X, p), 1, 0) << (i-1)
+        for I in EdgeIterator(outerR, innerR)
+            out[I] = lbp_encode(lbp, X, I, offsets)
         end
-        out[I] = rst
+    else
+        # It's computationally more efficient to use integral array to compute
+        # the mean block value.
+        iX = IntegralArray(X)
+        # TODO(johnnychen94): it can be faster if we can enable SIMD here.
+        #                     Need to skip the boundary check in IntegralArray.
+        @inbounds for I in innerR
+            out[I] = mlbp_encode_inbounds(lbp, iX, I, bo, offsets)
+        end
+        for I in EdgeIterator(outerR, innerR)
+            out[I] = mlbp_encode(lbp, iX, I, bo, offsets)
+        end
     end
 
     for F in lookups
         @. out = F[out]
     end
-
     return out
 end
 
-function _build_lbp_original_lookup(
+
+###
+# Utils
+###
+
+function _build_local_binary_pattern_lookup(
         ::Type{T}, nbits;
         rotation::Bool,
         uniform_degree::Union{Nothing,Int}
@@ -260,11 +409,9 @@ function _build_lbp_original_lookup(
     return lookups
 end
 
-Base.@propagate_inbounds _default_lbp_f(X, I, offsets) = X[I]
-
 """
     average_mode(X, I, offsets) -> value
-    lbp_original(average_mode, X, args...; kwargs...)
+    local_binary_pattern(average_mode, X, args...; kwargs...)
 
 Compute the local binary pattern using the average mode of the block.
 
@@ -272,20 +419,20 @@ Original local binary pattern compares the neighbors with the center value `X[I]
 modified version instead uses the mean value of the block.
 
 ```jldoctest; setup=:(using LocalBinaryPatterns)
-julia> using LocalBinaryPatterns: average_mode
-
 julia> X = [6 7 9; 5 6 3; 2 1 7]
 3×3 $(Matrix{Int}):
  6  7  9
  5  6  3
  2  1  7
 
-julia> lbp_original(average_mode, X)
+julia> local_binary_pattern(average_mode, X)
 3×3 $(Matrix{UInt8}):
  0xc0  0x40  0x00
  0x68  0xa9  0x1b
  0x28  0x69  0x01
 ```
+
+See also [`local_binary_pattern`](@ref) for additional arguments and parameters.
 """
 Base.@propagate_inbounds function average_mode(X, I::CartesianIndex, offsets)
     v = X[I]
@@ -294,6 +441,20 @@ Base.@propagate_inbounds function average_mode(X, I::CartesianIndex, offsets)
         p = I.I .+ o
         inbounds = map(in, p, ax)
         all(inbounds) ? _inbounds_getindex(X, p) : v
+    end
+    return rst / (length(offsets) + 1)
+end
+
+Base.@propagate_inbounds function average_mode(X::IntegralArray, I::CartesianIndex, bo::CartesianIndex, offsets)
+    # multi-block version
+    R = CartesianIndices(X)
+    Rfirst, Rlast = first(R), last(R)
+    Rp = I:min(I+bo, Rlast)
+    v = X[I..last(Rp)]/length(Rp)
+    rst = v + mapreduce(+, offsets) do o
+        p = CartesianIndex(I.I .+ o)
+        Rp = max(p, Rfirst):min(p+bo, Rlast)
+        !isempty(Rp) ? X[first(Rp)..last(Rp)]/length(Rp) : v
     end
     return rst / (length(offsets) + 1)
 end

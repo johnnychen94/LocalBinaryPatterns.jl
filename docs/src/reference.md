@@ -1,7 +1,7 @@
 # API References
 
 ```@docs
-lbp_original
+local_binary_pattern
 ```
 
 ## Helpers

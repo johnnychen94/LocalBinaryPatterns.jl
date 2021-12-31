@@ -16,11 +16,13 @@ tst_types = (Gray{N0f8}, Gray{Float32})
 
 const SUITE = BenchmarkGroup()
 
-alg_list = (("Original", lbp_original),
-            ("Multi-block (1x1)", img->multiblock_lbp(img, (1, 1))),
-            ("Multi-block (3x3)", img->multiblock_lbp(img, (3, 3))),
-            ("Multi-block (5x5)", img->multiblock_lbp(img, (5, 5))),
-            )
+alg_list = [
+    ("Original", local_binary_pattern),
+    ("Modified", img->local_binary_pattern(average_mode, img)),
+    ("Multi-block (1x1)", img->local_binary_pattern(img, (1, 1))),
+    ("Multi-block (3x3)", img->local_binary_pattern(img, (3, 3))),
+    ("Modified Multi-block (3x3)", img->local_binary_pattern(average_mode, img, (3, 3)))
+]
 
 function add_algorithm_benchmark!(suite, img, alg_name, alg;
                                   tst_sizes, tst_types)

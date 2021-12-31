@@ -19,6 +19,6 @@ end
 include("bitrotate_encoding.jl")
 include("uniform_encoding.jl")
 
-include("lbp_original.jl")
+include("local_binary_pattern.jl")
 
 end

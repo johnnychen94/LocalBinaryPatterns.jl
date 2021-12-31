@@ -12,10 +12,10 @@ literature.
   channelwise LBP and then concatenate together.
 - `block_size::Tuple{Int,Int}`: positive integers that used to specify the size of each
   block. When `block_size == (1, 1)`, this method degenerates to the pixel-version
-  [`lbp_original`](@ref).
+  [`local_binary_pattern`](@ref).
 
 For the meaning and values of parameters `rotation` and `uniform_degree` please see the docs
-of [`lbp_original`](@ref).
+of [`local_binary_pattern`](@ref).
 
 # Examples
 
@@ -45,7 +45,7 @@ julia> multiblock_lbp(X, (3, 3); uniform_degree=2)[4, 4] # 0x09 (i.e., miscellan
 # Extended help
 
 The following is how the block-version of local binary pattern computed with `block_size=(3,
-3)`. Check out [`lbp_original`](@ref) for more details of the original pixel-version of
+3)`. Check out [`local_binary_pattern`](@ref) for more details of the original pixel-version of
 local binary pattern.
 
 ```text
@@ -69,7 +69,7 @@ local binary pattern.
 """
 function multiblock_lbp(X::AbstractArray, block_size::Dims{2}; rotation::Bool=false, uniform_degree::Union{Nothing,Int}=nothing)
     offsets = ((-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1))
-    lookups = _build_lbp_original_lookup(UInt8, 8; rotation=rotation, uniform_degree=uniform_degree)
+    lookups = _build_local_binary_pattern_lookup(UInt8, 8; rotation=rotation, uniform_degree=uniform_degree)
     multiblock_lbp!(similar(X, UInt8), X, offsets, lookups, block_size)
 end
 

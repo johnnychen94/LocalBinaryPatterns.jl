@@ -7,9 +7,9 @@ using ImageCore.OffsetArrays
 using StaticArrays
 using IntegralArrays
 
-export lbp_original, multiblock_lbp
+export local_binary_pattern, multiblock_lbp
 
-include("lbp_original.jl")
+include("local_binary_pattern.jl")
 include("multiblock_lbp.jl")
 
 include("bitrotate_encoding.jl")

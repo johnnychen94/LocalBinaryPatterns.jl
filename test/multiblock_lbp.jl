@@ -55,7 +55,7 @@
     @test multiblock_lbp(Gray.(X./255), (3, 3)) == out
 
     # when `block_size == (1, 1)`, it degenerates to the original pixel version
-    @test multiblock_lbp(X, (1, 1)) == lbp_original(X)
+    @test multiblock_lbp(X, (1, 1)) == local_binary_pattern(X)
 
     # LBP is only defined for scalar values
     @test_throws MethodError multiblock_lbp(RGB.(Gray.(X./255)), (3, 3))

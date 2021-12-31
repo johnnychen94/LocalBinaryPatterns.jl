@@ -15,6 +15,10 @@ end
 LBP{N}(mode, block_size::Int=1) where N = LBP(mode, ntuple(_->block_size, N))
 
 Base.@propagate_inbounds _default_lbp_mode(X, I, offsets) = X[I]
+Base.@propagate_inbounds function _default_lbp_mode(X::IntegralArray, I, bo, offsets)
+    Rp = I:min(I+bo, last(CartesianIndices(X)))
+    X[first(Rp)..last(Rp)]/length(Rp)
+end
 
 Base.@propagate_inbounds function lbp_encode(lbp::LBP, X::AbstractMatrix, I::CartesianIndex{2}, offsets::Tuple)
     rst = 0
@@ -35,10 +39,11 @@ Base.@propagate_inbounds function mlbp_encode_inbounds(
         bo::CartesianIndex{2},
         offsets::Tuple)
     rst = 0
-    gc = iX[I..I+bo]
+    gc = lbp.mode(iX, I, bo, offsets)
+    n = prod(bo.I .+ 1)
     for i in 1:length(offsets)
         p = CartesianIndex(I.I .+ offsets[i])
-        rst += ifelse(gc <= iX[p..p+bo], 1, 0) << (i-1)
+        rst += ifelse(gc <= iX[p..p+bo]/n, 1, 0) << (i-1)
     end
     return rst
 end
@@ -50,8 +55,7 @@ function mlbp_encode(
         offsets::Tuple)
     rst = 0
     Rlast = last(CartesianIndices(iX))
-    R = I:min(I+bo, Rlast)
-    gc = iX[first(R)..last(R)]/length(R)
+    gc = lbp.mode(iX, I, bo, offsets)
     for i in 1:length(offsets)
         p = CartesianIndex(I.I .+ offsets[i])
         checkbounds(Bool, iX, p.I...) || continue
@@ -439,6 +443,20 @@ Base.@propagate_inbounds function average_mode(X, I::CartesianIndex, offsets)
         p = I.I .+ o
         inbounds = map(in, p, ax)
         all(inbounds) ? _inbounds_getindex(X, p) : v
+    end
+    return rst / (length(offsets) + 1)
+end
+
+Base.@propagate_inbounds function average_mode(X::IntegralArray, I::CartesianIndex, bo::CartesianIndex, offsets)
+    # multi-block version
+    R = CartesianIndices(X)
+    Rfirst, Rlast = first(R), last(R)
+    Rp = I:min(I+bo, Rlast)
+    v = X[I..last(Rp)]/length(Rp)
+    rst = v + mapreduce(+, offsets) do o
+        p = CartesianIndex(I.I .+ o)
+        Rp = max(p, Rfirst):min(p+bo, Rlast)
+        !isempty(Rp) ? X[first(Rp)..last(Rp)]/length(Rp) : v
     end
     return rst / (length(offsets) + 1)
 end

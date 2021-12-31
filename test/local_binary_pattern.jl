@@ -302,3 +302,33 @@ end
         @test out == ref_out
     end
 end
+
+@testset "multiblock LBP + average_mode" begin
+    X = [
+        50  50  50  0  0  0   0   0   0
+        50  50  50  0  0  0   0   0   0
+        50  50  50  0  0  0   0   0   0
+         0   0   0  1  1  1   0   0   0
+         0   0   0  1  1  1   0   0   0
+         0   0   0  1  1  1   0   0   0
+         0   0   0  0  0  0  50  50  50
+         0   0   0  0  0  0  50  50  50
+         0   0   0  0  0  0  50  50  50
+    ]
+    ref_out = [
+        0    0    0    2    2    2   4   4   4
+        0    0    0  130  130  146  16  20  20
+        0    0  128  130  146  144  16  20  20
+        8  136  136  129  145  145  16  20  20
+        8  136  200  193  209  208  16  20  20
+        8  200  192  193  208  208  16  16  20
+       32   64   64   64   64   64   0   0   0
+       32   96   96   96   96   64   0   0   0
+       32   96   96   96   96   96   0   0   0
+    ]
+    out = local_binary_pattern(average_mode, X, (3, 3))
+    @test out == ref_out
+
+    # the center pixel is well-defined here
+    @test out[4, 4] == local_binary_pattern(average_mode, [50 0 0; 0 1 0; 0 0 50], (1, 1))[2, 2]
+end

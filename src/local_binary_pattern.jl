@@ -419,8 +419,6 @@ Original local binary pattern compares the neighbors with the center value `X[I]
 modified version instead uses the mean value of the block.
 
 ```jldoctest; setup=:(using LocalBinaryPatterns)
-julia> using LocalBinaryPatterns: average_mode
-
 julia> X = [6 7 9; 5 6 3; 2 1 7]
 3×3 $(Matrix{Int}):
  6  7  9

@@ -7,7 +7,7 @@ using ImageCore.OffsetArrays
 using StaticArrays
 using IntegralArrays
 
-export local_binary_pattern
+export local_binary_pattern, average_mode
 
 include("local_binary_pattern.jl")
 

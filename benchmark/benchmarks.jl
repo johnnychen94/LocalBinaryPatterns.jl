@@ -18,10 +18,10 @@ const SUITE = BenchmarkGroup()
 
 alg_list = [
     ("Original", local_binary_pattern),
-    ("Modified", img->local_binary_pattern(average_mode, img)),
-    ("Multi-block (1x1)", img->local_binary_pattern(img, (1, 1))),
-    ("Multi-block (3x3)", img->local_binary_pattern(img, (3, 3))),
-    ("Modified Multi-block (3x3)", img->local_binary_pattern(average_mode, img, (3, 3)))
+    ("Modified", img->local_binary_pattern(LBP(average_mode, (1, 1)), img)),
+    ("Multi-block (1x1)", img->local_binary_pattern(LBP((1, 1)), img)),
+    ("Multi-block (3x3)", img->local_binary_pattern(LBP((3, 3)), img)),
+    ("Modified Multi-block (3x3)", img->local_binary_pattern(LBP(average_mode, (3, 3)), img))
 ]
 
 function add_algorithm_benchmark!(suite, img, alg_name, alg;

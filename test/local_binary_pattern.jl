@@ -146,21 +146,21 @@ end
 @testset "average mode" begin
     X = [6 7 9; 5 6 3; 2 1 7]
     ref_out = [192 64 0; 104 169 27; 40 105 1]
-    out = local_binary_pattern(average_mode, X)
+    out = local_binary_pattern(LBP(average_mode, (1, 1)), X)
     @test eltype(out) == UInt8
     @test size(out) == (3, 3)
     @test out == ref_out
 
     X = [6 7 9; 5 6 3; 2 1 7]
     ref_out = [3 1 0; 13 53 27; 5 45 1]
-    out = local_binary_pattern(average_mode, X, rotation=true)
+    out = local_binary_pattern(LBP(average_mode, (1, 1)), X, rotation=true)
     @test eltype(out) == UInt8
     @test size(out) == (3, 3)
     @test out == ref_out
 
     X = [6 7 9; 5 6 3; 2 1 7]
     ref_out = [1 1 0; 3 6 28; 2 15 0]
-    out = local_binary_pattern(average_mode, X, 6, 1)
+    out = local_binary_pattern(LBP(average_mode, (1, 1)), X, 6, 1)
     @test eltype(out) == UInt32
     @test size(out) == (3, 3)
     @test out == ref_out
@@ -196,7 +196,7 @@ end
       104  104  104  107   96   96   0   0   0
     ]
 
-    out = local_binary_pattern(X, (3, 3))
+    out = local_binary_pattern(LBP((3, 3)), X)
     @test eltype(out) == UInt8
     @test size(out) == (9, 9)
     @test out == ref_out
@@ -212,37 +212,37 @@ end
       104  104  107  107  107   96   64   0   2
       104  104  107  107  107  104  104   8  11
     ]
-    @test ref_out == local_binary_pattern(X, (2, 2))
+    @test ref_out == local_binary_pattern(LBP((2, 2)), X)
 
     # ensure default parameter values are not changed accidently
-    @test out == local_binary_pattern(X, (3, 3); rotation=false, uniform_degree=nothing)
+    @test out == local_binary_pattern(LBP((3, 3)), X; rotation=false, uniform_degree=nothing)
 
     # intensity-invariant
-    @test_broken local_binary_pattern(X./3, (3, 3)) == out # float-point numerical error
-    @test local_binary_pattern(X./4, (3, 3)) == out
+    @test_broken local_binary_pattern(LBP((3, 3)), X./3) == out # float-point numerical error
+    @test local_binary_pattern(LBP((3, 3)), X./4) == out
     # Gray inputs
-    @test local_binary_pattern(Gray.(X./4), (3, 3)) == out
+    @test local_binary_pattern(LBP((3, 3)), Gray.(X./4)) == out
 
     # when `block_size == (1, 1)`, it degenerates to the original pixel version
-    @test local_binary_pattern(X, (1, 1)) == local_binary_pattern(X)
+    @test local_binary_pattern(LBP((1, 1)), X) == local_binary_pattern(X)
 
     # LBP is only defined for scalar values
-    @test_throws MethodError local_binary_pattern(RGB.(Gray.(X./255)), (3, 3))
+    @test_throws MethodError local_binary_pattern(LBP((3, 3)), RGB.(Gray.(X./255)))
 
     # check block_size
-    @test_throws ArgumentError local_binary_pattern(X, (0, 3))
-    @test_throws MethodError local_binary_pattern(X, (1.5, 1.5))
-    @test_throws MethodError local_binary_pattern(X, 3)
-    @test_throws MethodError local_binary_pattern(X, (3, ))
+    @test_throws ArgumentError local_binary_pattern(LBP((0, 3)), X, (0, 3))
+    @test_throws MethodError local_binary_pattern(LBP((1.5, 1.5)), X)
+    @test_throws MethodError local_binary_pattern(LBP(3), X)
+    @test_throws MethodError local_binary_pattern(LBP((3, )), X)
 
     # not yet ready for N-dimensional array (although it's doable)
     @test_throws MethodError local_binary_pattern(rand(3, 3, 3), (3, 3))
 
     @testset "OffsetArrays" begin
         Xo = OffsetArray(X, -1, -1)
-        out = local_binary_pattern(Xo, (3, 3))
+        out = local_binary_pattern(LBP((3, 3)), Xo)
         @test axes(out) == axes(Xo)
-        @test OffsetArrays.no_offset_view(out) == local_binary_pattern(X, (3, 3))
+        @test OffsetArrays.no_offset_view(out) == local_binary_pattern(LBP((3, 3)), X)
     end
 
     @testset "Rotation Invariant" begin
@@ -258,7 +258,7 @@ end
            13  13  13  91   3   3   0   0   0
         ]
 
-        out = local_binary_pattern(X, (3, 3); rotation=true)
+        out = local_binary_pattern(LBP((3, 3)), X; rotation=true)
         @test eltype(out) == UInt8
         @test size(out) == (9, 9)
         @test out == ref_out
@@ -277,7 +277,7 @@ end
             9    9    9  9  96  96   0   0   0
         ]
 
-        out = local_binary_pattern(X, (3, 3); rotation=false, uniform_degree=2)
+        out = local_binary_pattern(LBP((3, 3)), X; rotation=false, uniform_degree=2)
         @test eltype(out) == UInt8
         @test size(out) == (9, 9)
         @test out == ref_out
@@ -296,10 +296,16 @@ end
             9  9  9  9  3  3   0   0   0
         ]
 
-        out = local_binary_pattern(X, (3, 3); rotation=true, uniform_degree=2)
+        out = local_binary_pattern(LBP((3, 3)), X; rotation=true, uniform_degree=2)
         @test eltype(out) == UInt8
         @test size(out) == (9, 9)
         @test out == ref_out
+    end
+
+    @testset "Interpolation-based" begin
+        @test_throws ArgumentError local_binary_pattern(LBP((3, 3)), X, 4, 1)
+        @test_throws ArgumentError local_binary_pattern(LBP((3, 3)), X, 4, 1; rotation=true)
+        @test_throws ArgumentError local_binary_pattern(LBP((3, 3)), X, 4, 1; uniform_degree=2)
     end
 end
 
@@ -326,9 +332,9 @@ end
        32   96   96   96   96   64   0   0   0
        32   96   96   96   96   96   0   0   0
     ]
-    out = local_binary_pattern(average_mode, X, (3, 3))
+    out = local_binary_pattern(LBP(average_mode, (3, 3)), X)
     @test out == ref_out
 
     # the center pixel is well-defined here
-    @test out[4, 4] == local_binary_pattern(average_mode, [50 0 0; 0 1 0; 0 0 50], (1, 1))[2, 2]
+    @test out[4, 4] == local_binary_pattern(LBP(average_mode, (1, 1)), [50 0 0; 0 1 0; 0 0 50])[2, 2]
 end

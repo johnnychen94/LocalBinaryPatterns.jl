@@ -1,7 +1,9 @@
 using LocalBinaryPatterns
 using ImageCore
 using ImageCore.OffsetArrays
+using IntegralArrays
 using Interpolations
+using Statistics
 using Test
 using Aqua, Documenter
 
@@ -18,7 +20,7 @@ end
 
 include("bitrotate_encoding.jl")
 include("uniform_encoding.jl")
-
+include("modes.jl")
 include("local_binary_pattern.jl")
 
 end

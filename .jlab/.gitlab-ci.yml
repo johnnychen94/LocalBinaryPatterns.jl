@@ -2,7 +2,7 @@ image: gitlab.jlab.pro:5050/jlab/gpu-dev
 
 stages:
   - test
-  - deploy
+  - report
 
 variables:
   JULIA_DEPOT_PATH: $CI_PROJECT_DIR/.julia
@@ -11,6 +11,12 @@ cache:
   key: $CI_COMMIT_REF_SLUG
   paths:
     - .julia
+
+.only-default: &only-default
+  only:
+    - master
+    - merge_requests
+    - tags
 
 .test_template: &test_base
   stage: test
@@ -24,17 +30,15 @@ cache:
 .benchmark_template: &benchmark_base
   stage: test
   script:
+    - git fetch
     - julia --color=yes --project=benchmark -e 'using Pkg; Pkg.develop(path=pwd()); Pkg.instantiate(); Pkg.build()'
-    - julia --color=yes --project=benchmark -e '
-        using PkgBenchmark;
-        results = benchmarkpkg("LocalBinaryPatterns");
-        export_markdown("benchmark_report.md", results)
-      '
+    - julia --color=yes --project=benchmark .jlab/run_benchmarks.jl
   artifacts:
     paths:
-      - benchmark_report.md
+      - benchmark_*_report.md
 
 unit test:
+  <<: *only-default
   <<: *test_base
   tags:
     - nvidia-docker
@@ -43,24 +47,27 @@ unit test:
 benchmark:
   <<: *benchmark_base
   only:
+    refs:
+      - master
+      - merge_requests
+      - tags
     changes:
+      - .jlab/*
       - benchmark/*
       - src/*
       - Project.toml
+  when: manual
   tags:
     - nvidia-docker
     - ubuntu
 
 # requires environment variable REPO_TOKEN set up
 # see https://gitlab.com/iterative.ai/cml-base-case
-deploy:
-  stage: deploy
+report:
+  <<: *only-default
+  stage: report
+  needs: [benchmark]
   tags:
-    - nvidia-docker
     - ubuntu
   script:
-    - touch placeholder_report.md
-    - printf "<details>\n  <summary> CML report </summary>\n\n" > report.final.md
-    - cat *report.md >> report.final.md
-    - printf "\n</details>" >> report.final.md
-    - cml-send-comment report.final.md
+    - julia .jlab/process_reports.jl

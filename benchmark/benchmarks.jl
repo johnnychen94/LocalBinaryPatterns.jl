@@ -5,19 +5,24 @@ using LocalBinaryPatterns
 using ImageTransformations
 using TestImages
 using ImageCore
+using Interpolations
 
 include("mapwindow_impl.jl")
 
 on_CI = haskey(ENV, "GITHUB_ACTIONS")
 
 img = testimage("cameraman")
-tst_sizes = (256, 512)
-tst_types = (Gray{N0f8}, Gray{Float32})
+
+tst_sizes = [256, ]
+tst_types = [Gray{Float32}]
 
 const SUITE = BenchmarkGroup()
 
 alg_list = [
     ("Original", local_binary_pattern),
+    ("Original 8 bits with bilinear", img->local_binary_pattern(img, 8, 1.0, Linear())),
+    ("Original 8 bits with nearest neighbours", img->local_binary_pattern(img, 8, 1.0, Constant())),
+    ("Original 24 bits with bilinear", img->local_binary_pattern(img, 24, 3.0, Linear())),
     ("Modified", img->local_binary_pattern(LBP(average_mode, (1, 1)), img)),
     ("Multi-block (1x1)", img->local_binary_pattern(LBP((1, 1)), img)),
     ("Multi-block (3x3)", img->local_binary_pattern(LBP((3, 3)), img)),

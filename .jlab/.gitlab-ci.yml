@@ -35,7 +35,7 @@ cache:
     - julia --color=yes --project=benchmark .jlab/run_benchmarks.jl
   artifacts:
     paths:
-      - benchmark_*_report.md
+      - benchmark*report.md
 
 unit test:
   <<: *only-default
@@ -45,17 +45,8 @@ unit test:
     - ubuntu
 
 benchmark:
+  <<: *only-default
   <<: *benchmark_base
-  only:
-    refs:
-      - master
-      - merge_requests
-      - tags
-    changes:
-      - .jlab/*
-      - benchmark/*
-      - src/*
-      - Project.toml
   when: manual
   tags:
     - nvidia-docker

@@ -5,7 +5,7 @@ function aggregate_reports(outfile; rootdir=".", pattern=raw"report.md$")
         report_name = replace(strip(split(lowercase(report), "report")[1], '_'), '_'=>' ')
         @info "Processing \"$report\"..."
         report_name = titlecase(report_name) * " Report"
-        open(outfile, "w") do io
+        open(outfile, "a") do io
             println(io, "\n<details>\n<summary> $report_name </summary>\n")
             open(report, "r") do src_io
                 write(io, read(src_io))
